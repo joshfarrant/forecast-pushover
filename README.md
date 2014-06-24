@@ -3,7 +3,7 @@ forecast-pushover
 
 A Node.js client that notifies you if it's about to rain via Pushover, using data from Forecast.io.
 
-Credentials are stored in the `config.json` file and should be formatted as follows:
+Credentials are stored in a `config.json` file in the root of the project and should be formatted as follows:
 
 ```
 {
