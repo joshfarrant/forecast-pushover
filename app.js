@@ -30,7 +30,7 @@ function getReadableIntensityAndPriority(intensity) {
   var response;
   if (intensity < 0.432) {
     intensity = "Very light ";
-    priority = "Low";
+    priority = "Very low";
   } else if (intensity < 2.54) {
     intensity = "Light ";
     priority = "Low";
@@ -64,17 +64,25 @@ setInterval(function() {
         currentPrecip = bodyParsed['currently']['precipType'];
       };
 
-      // Builds array of all times when precipitation probability is greater than the specified minimum
+      var precipProbability;
+      var previousPrecip = false;
+
+      // Gets next time when precipitation probability is greater than the specified minimum
+      // If this precipitation will last more than 1 min, builds an array of all items in the next precipitation event
+      // Stops building array if a precipitation event stops
       for (var i in nextHour) {
-        var precipProbability = nextHour[i]['precipProbability'];
+        precipProbability = nextHour[i]['precipProbability'];
         if (precipProbability >= minPrecipProbability) {
           if (!upcomingPrecip) {
             var upcomingPrecip = [];
           };
           upcomingPrecip.push(nextHour[i]);
+          previousPrecip = true;
+        } else if (previousPrecip == true) {
+          break;
         };
       };
-      
+
       // Builds and sends notification if there is precipitation within the next hour
       if (upcomingPrecip && currentPrecip == false) {  
         var nextPrecip = upcomingPrecip[0];
