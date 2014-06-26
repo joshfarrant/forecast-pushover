@@ -8,8 +8,8 @@ var credentials = JSON.parse(fs.readFileSync('config.json'));
 var pushoverToken = credentials['pushoverToken'];
 var pushoverUser = credentials['pushoverUser'];
 var forecastKey = credentials['forecastKey'];
-var coordinates = "53.9892,-7.3628" // Coordinates for Ireland (because it always seems to be raining there)
-// My rough coordinates 52.4782600,-1.8944970
+var coordinates = credentials['coordinates']; // My rough coordinates are 52.4782600,-1.8944970
+var refreshTime = credentials['refreshTime'];
 var forecastURL = "https://api.forecast.io/forecast/" + forecastKey + "/" + coordinates + "?exclude=flags,alerts,daily,hourly&units=si";
 
 // Sends the notifications
@@ -136,5 +136,5 @@ if (currentHour >= 8 && currentHour < 21) {
         };
       };
     });
-  }, 180000);
+  }, refreshTime);
 };
