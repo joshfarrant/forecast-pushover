@@ -19,7 +19,7 @@ function sendNotification(title, message) {
     user:  pushoverUser
   });
   push.send(title, message);
-  lastNotificationTime = lastRequestTime;
+  lastNotificationTime = currentTimestamp;
   return lastNotificationTime;
 };
 
@@ -92,7 +92,8 @@ if (currentHour >= 8 && currentHour < 21) {
         };
 
         // Builds and sends notification if there is precipitation within the next hour
-        if (upcomingPrecip && currentPrecip == false) {  
+        if (upcomingPrecip) { 
+          var upcomingPrecipDuration = upcomingPrecip.length - 1; // How many minutes the next precipitation will occur for
           var nextPrecip = upcomingPrecip[0];
           var secondsToPrecip = (upcomingPrecip[0]['time'] - lastRequestTime);
           var minutesToPrecip = (secondsToPrecip / 60) | 0;
@@ -101,27 +102,24 @@ if (currentHour >= 8 && currentHour < 21) {
           var intensity = intensityAndPriority[0];
           var priority = intensityAndPriority[1];
           var message = "";
-          var nextPrecipDuration = 0; // How many minutes the next precipitation will occur for
 
           var title = intensity + nextPrecip['precipType'];
           if (minutesToPrecip != 0){
-            message = "Starting in " + minutesToPrecip + " minutes.";
+            message = "Starting in " + minutesToPrecip + " minutes, for " + upcomingPrecipDuration + " minutes.";
           } else {
-            message = "Starting now.";
+            message = "For " + upcomingPrecipDuration + " minutes.";
           };
           var notificationLimitExpiry = lastNotificationTime + notificationWaitTime;
-
           // Checks priority of upcoming weather event
           // Low or medium priority event notifications are limited by the notificationWaitTime
           // High priority events are not limited
-          if (priority == "Low" || priority == "Medium") {
+          if (priority == "Medium") {
             if (lastRequestTime >= notificationLimitExpiry) {
               console.log("Notification sent:")
               console.log(title);
               console.log(message);
-              console.log(priority);
 
-              // lastNotificationTime = sendNotification(title, message);
+              lastNotificationTime = sendNotification(title, message);
             } else {
               console.log("Notification limit reached, limit resets in " + (lastRequestTime - notificationLimitExpiry) + " seconds")
             };
@@ -131,7 +129,7 @@ if (currentHour >= 8 && currentHour < 21) {
               console.log(message);
               console.log(priority);
 
-              // lastNotificationTime = sendNotification(title, message);
+              lastNotificationTime = sendNotification(title, message);
           };
         };
       };
