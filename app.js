@@ -10,6 +10,14 @@ var coordinates = credentials['coordinates']; // My rough coordinates are 52.478
 var refreshTime = credentials['refreshTime'];
 var forecastURL = "https://api.forecast.io/forecast/" + forecastKey + "/" + coordinates + "?exclude=flags,alerts,daily,hourly&units=si";
 
+// Writes string to log.txt
+function logString(string) {
+  var currentDate = new Date();
+  var currentTimestamp = currentDate.getTime();
+  var logString = currentTimestamp + " - " + string + "\n";
+  fs.appendFile('log.txt', logString);
+};
+
 // Sends the notifications
 function sendNotification(title, message, sound) {
   var data = {
@@ -19,8 +27,17 @@ function sendNotification(title, message, sound) {
     message: message,
     sound:   sound
   };
-  httpreq.post("https://api.pushover.net/1/messages.json", {parameters: data})
-  lastNotificationTime = currentTimestamp;
+  var logData = "";
+  httpreq.post("https://api.pushover.net/1/messages.json", {parameters: data}, function (err, res){
+    if (err) {
+      logData = "Error sending notification: " + err;
+      logString(logData);
+    } else {
+      logData = "Notification sent: [TITLE: '" + title + "'], [MESSAGE: '" + message + "'], [SOUND: '" + sound + "']";
+      logString(logData);
+      lastNotificationTime = currentTimestamp;
+    };
+  });
   return lastNotificationTime;
 };
 
@@ -45,7 +62,6 @@ function getReadableIntensityAndPriority(intensity) {
   response = [intensity, priority];
   return response;
 };
-
 var lastNotificationTime = 0;
 var currentDate = new Date();
 var currentDay = currentDate.getDay();
@@ -58,9 +74,13 @@ if (currentHour >= 8 && currentHour < 21) {
   // Checks forecast.io API periodically for up-to-date weather data
   setInterval(function() {
 
-    console.log('tick');
     // Gets current weather data from forecast.io API
     httpreq.get(forecastURL, function (err, res) {
+      // Logs any errors
+      if (err) {
+        logData = "Error querying Forecast API: " + err;
+        logString(logData);
+      };
       if (!err && res.statusCode == 200) {
         var bodyParsed = JSON.parse(res.body);
         var nextHour = bodyParsed['minutely']['data']; // All minutely weather data for the next hour
@@ -72,7 +92,8 @@ if (currentHour >= 8 && currentHour < 21) {
         if (bodyParsed['currently']['precipType']) {
           currentPrecip = bodyParsed['currently']['precipType'];
         };
-
+        logData = "Forecast API successfully queried";
+        logString(logData);
         var precipProbability;
         var previousPrecip = false;
 
@@ -112,24 +133,16 @@ if (currentHour >= 8 && currentHour < 21) {
           };
           var notificationLimitExpiry = lastNotificationTime + notificationWaitTime;
           // Checks priority of upcoming weather event
-          // Low or medium priority event notifications are limited by the notificationWaitTime
+          // Medium priority event notifications are limited by the notificationWaitTime
           // High priority events are not limited
           if (priority == "Medium") {
             if (lastRequestTime >= notificationLimitExpiry) {
-              console.log("Notification sent:")
-              console.log(title);
-              console.log(message);
-
               lastNotificationTime = sendNotification(title, message);
             } else {
-              console.log("Notification limit reached, limit resets in " + (lastRequestTime - notificationLimitExpiry) + " seconds")
+              logData = "Notification limit reached, resets in " + (lastRequestTime - notificationLimitExpiry) + " seconds";
+              logString(logData);
             };
           } else if (priority == "High") {
-              console.log("Notification sent:")
-              console.log(title);
-              console.log(message);
-              console.log(priority);
-
               lastNotificationTime = sendNotification(title, message);
           };
         };
