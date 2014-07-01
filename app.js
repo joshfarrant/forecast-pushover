@@ -1,7 +1,5 @@
-var Pushover = require('node-pushover');
-var http = require('http');
+var httpreq = require('httpreq');
 var fs = require('fs');
-var request = require('request');
 
 // Reads config.json to get credentials for Pushover and Forecast.io APIs
 var credentials = JSON.parse(fs.readFileSync('config.json'));
@@ -13,12 +11,15 @@ var refreshTime = credentials['refreshTime'];
 var forecastURL = "https://api.forecast.io/forecast/" + forecastKey + "/" + coordinates + "?exclude=flags,alerts,daily,hourly&units=si";
 
 // Sends the notifications
-function sendNotification(title, message) {
-  var push = new Pushover({
-    token: pushoverToken,
-    user:  pushoverUser
-  });
-  push.send(title, message);
+function sendNotification(title, message, sound) {
+  var data = {
+    token:   pushoverToken,
+    user:    pushoverUser,
+    title:   title,
+    message: message,
+    sound:   sound
+  };
+  httpreq.post("https://api.pushover.net/1/messages.json", {parameters: data})
   lastNotificationTime = currentTimestamp;
   return lastNotificationTime;
 };
@@ -59,9 +60,9 @@ if (currentHour >= 8 && currentHour < 21) {
 
     console.log('tick');
     // Gets current weather data from forecast.io API
-    request(forecastURL, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
-        var bodyParsed = JSON.parse(body);
+    httpreq.get(forecastURL, function (err, res) {
+      if (!err && res.statusCode == 200) {
+        var bodyParsed = JSON.parse(res.body);
         var nextHour = bodyParsed['minutely']['data']; // All minutely weather data for the next hour
         var minPrecipProbability = 0.0007; // Minimum precipitation probability to class as weather event
         var currentPrecip = false;
