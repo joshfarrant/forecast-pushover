@@ -33,10 +33,10 @@ Credentials are stored in a `config.json` file in the root of the project and sh
         "token" : "BOXCAR_API_TOKEN_1"
     },
     "USER_2" : {
-        "token" : "BOXCAR_API_TOKEN_1"
+        "token" : "BOXCAR_API_TOKEN_2"
     },
     "USER_3" : {
-        "token" : "BOXCAR_API_TOKEN_1"
+        "token" : "BOXCAR_API_TOKEN_3"
     }
   }
 }
