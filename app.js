@@ -1,13 +1,21 @@
 var httpreq = require('httpreq');
 var fs = require('fs');
 
-// Reads config.json to get credentials for Pushover and Forecast.io APIs
+// Reads config.json to get credentials and data
 var credentials = JSON.parse(fs.readFileSync('config.json'));
 var pushoverUsers = credentials['pushover'];
 var boxcarUsers = credentials['boxcar'];
 var forecastKey = credentials['forecastKey'];
 var refreshTime = credentials['refreshTime'];
-var locations = credentials['locations']; 
+var locations = credentials['locations'];
+
+var notificationWaitTime = 1200; // Time to wait between sending notifications
+var lastNotificationTime = 0;
+var lastRequestTime = 0;
+var currentDate = new Date();
+var currentDay = currentDate.getDay();
+var currentTimestamp = (currentDate.getTime() / 1000) | 0;
+var currentHour = currentDate.getHours();
 
 // Writes string to log.txt
 function logString(string) {
@@ -88,18 +96,11 @@ function getReadableIntensityAndPriority(intensity) {
   return response;
 };
 
-var lastNotificationTime = 0;
-var currentDate = new Date();
-var currentDay = currentDate.getDay();
-var currentTimestamp = (currentDate.getTime() / 1000) | 0;
-var currentHour = currentDate.getHours();
-
 // Queries forecast API for location, notifies user if there is upcoming precipitation
-function checkForecastAndSendNotification(user, location) {
+function checkForecast(location, user, method) {
+  // Gets current weather data from forecast.io API
   var coordinates = locations[location];
   var forecastURL = "https://api.forecast.io/forecast/" + forecastKey + "/" + coordinates + "?exclude=flags,alerts,daily,hourly&units=si";
-
-  // Gets current weather data from forecast.io API
   httpreq.get(forecastURL, function (err, res) {
     // Logs any errors
     if (err) {
@@ -116,8 +117,8 @@ function checkForecastAndSendNotification(user, location) {
       };
       var minPrecipProbability = 0.0007; // Minimum precipitation probability to class as weather event
       var currentPrecip = false;
-      var lastRequestTime = bodyParsed['currently']['time']; // Gets last request time from response
-      var notificationWaitTime = 1200; // Time to wait between sending notifications
+
+      lastRequestTime = bodyParsed['currently']['time']; // Gets last request time from response
 
       if (bodyParsed['currently']['precipType']) {
         currentPrecip = bodyParsed['currently']['precipType'];
@@ -142,48 +143,58 @@ function checkForecastAndSendNotification(user, location) {
           break;
         };
       };
-    };
-
-    // Builds and sends notification if there is precipitation within the next hour
-    if (upcomingPrecip) { 
-      var upcomingPrecipDuration = upcomingPrecip.length - 1; // How many minutes the next precipitation will occur for
-      var nextPrecip = upcomingPrecip[0];
-      var secondsToPrecip = (upcomingPrecip[0]['time'] - lastRequestTime);
-      var minutesToPrecip = (secondsToPrecip / 60) | 0;
-
-      var intensityAndPriority = getReadableIntensityAndPriority(upcomingPrecip[0]['precipIntensity']);
-      var intensity = intensityAndPriority[0];
-      var priority = intensityAndPriority[1];
-      var message = "";
-
-      var title = intensity + nextPrecip['precipType'];
-      if (minutesToPrecip != 0){
-        message = "starting in " + minutesToPrecip + " minutes, for " + upcomingPrecipDuration + " minutes.";
-      } else {
-        message = "for " + upcomingPrecipDuration + " minutes.";
-      };
-      var notificationLimitExpiry = lastNotificationTime + notificationWaitTime;
-      // Checks priority of upcoming weather event
-      // Medium priority event notifications are limited by the notificationWaitTime
-      // High priority events are not limited
-      if (priority == "Medium") {
-        if (lastRequestTime >= notificationLimitExpiry) {
-          lastNotificationTime = sendPushover(user, title, message);
-        } else {
-          logData = "Notification limit reached, resets in " + (lastRequestTime - notificationLimitExpiry) + " seconds";
-          logString(logData);
-        };
-      } else if (priority == "High") {
-          lastNotificationTime = sendPushover(user, title, message);
+      if (upcomingPrecip) {
+        sendNotification(user, upcomingPrecip, method);
       };
     };
   });
+};
+
+function sendNotification(user, upcomingPrecip, method) {
+  // Builds and sends notification if there is precipitation within the next hour
+  var upcomingPrecipDuration = upcomingPrecip.length - 1; // How many minutes the next precipitation will occur for
+  var nextPrecip = upcomingPrecip[0];
+  var secondsToPrecip = (upcomingPrecip[0]['time'] - lastRequestTime);
+  var minutesToPrecip = (secondsToPrecip / 60) | 0;
+
+  var intensityAndPriority = getReadableIntensityAndPriority(upcomingPrecip[0]['precipIntensity']);
+  var intensity = intensityAndPriority[0];
+  var priority = intensityAndPriority[1];
+  var message = "";
+  var title = intensity + nextPrecip['precipType'];
+  if (minutesToPrecip != 0){
+    message = "starting in " + minutesToPrecip + " minutes, for " + upcomingPrecipDuration + " minutes.";
+  } else {
+    message = "for " + upcomingPrecipDuration + " minutes.";
+  };
+  var notificationLimitExpiry = lastNotificationTime + notificationWaitTime;
+  // Checks priority of upcoming weather event
+  // Medium priority event notifications are limited by the notificationWaitTime
+  // High priority events are not limited
+  if (priority == "Medium") {
+    if (lastRequestTime >= notificationLimitExpiry) {
+      if (method == "Pushover"){
+        lastNotificationTime = sendPushover(user, title, message);
+      } else if (method == "Boxcar") {
+        lastNotificationTime = sendBoxcar(user, title, message);
+      };
+    } else {
+      logData = "Notification limit reached, resets in " + (lastRequestTime - notificationLimitExpiry) + " seconds";
+      logString(logData);
+    };
+  } else if (priority == "High") {
+      if (method == "Pushover"){
+        lastNotificationTime = sendPushover(user, title, message);
+      } else if (method == "Boxcar") {
+        lastNotificationTime = sendBoxcar(user, title, message);
+      };
+  };
 };
 
 // Prevents API calls and notifications from going out early in the morning or late at night
 if (currentHour >= 8 && currentHour < 22) {
   // Checks forecast.io API periodically for up-to-date weather data
   setInterval(function() {
-    checkForecastAndSendNotification("Josh", "Birmingham")
+    checkForecast("Birmingham", "Josh", "Pushover");
   }, refreshTime);
 };
