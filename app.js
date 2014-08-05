@@ -17,11 +17,23 @@ var currentDay = currentDate.getDay();
 var currentTimestamp = (currentDate.getTime() / 1000) | 0;
 var currentHour = currentDate.getHours();
 
+//Prepends leading 0 if n < 10
+function pad(n) {
+    return (n < 10) ? ("0" + n) : n;
+}
+
 // Writes string to log.txt
 function logString(string) {
   var currentDate = new Date();
-  var currentTimestamp = currentDate.getTime();
-  var logString = currentTimestamp + " - " + string + "\n";
+  var currentDay = currentDate.getDate();
+  var currentMonth = currentDate.getMonth() + 1;
+  var currentYear = currentDate.getFullYear();
+  var currentHour = currentDate.getHours();
+  var currentMinute = currentDate.getMinutes();
+  var currentSecond = currentDate.getSeconds();
+  var currentTimeString = pad(currentDay) + "/" + pad(currentMonth) + "/" + currentYear + " " + pad(currentHour) + ":" + pad(currentMinute) + ":" + pad(currentSecond);
+
+  var logString = currentTimeString + " - " + string + "\n";
   fs.appendFile('log.txt', logString);
 };
 
@@ -145,6 +157,9 @@ function checkForecast(location, user, method) {
       };
       if (upcomingPrecip) {
         sendNotification(user, upcomingPrecip, method);
+      } else {
+        logData = "No new weather events to report";
+        logString(logData);
       };
     };
   });
